@@ -1,7 +1,25 @@
-module Lib
-  (
+module Pokemon
+  ( Type (..),
+    PokemonType (..),
+    Attributes (..),
+    Name,
+    PokemonAttack (..),
+    Pokemon (..),
+    isFainted,
+    damageMultiplier,
+    evaluateDamage,
+    mkPokemon,
+    stab,
+    pokemonAttackDamage,
+    mkAttributesWithNewHp,
+    receiveAttack,
+    pokemonAttacksPokemon,
+    isPokemon,
+    findAttackByName,
   )
 where
+
+import Data.List (find)
 
 data Type
   = Normal
@@ -39,13 +57,14 @@ data Pokemon
       { name :: Name,
         types :: PokemonType,
         attributes :: Attributes,
-        attackOne :: PokemonAttack,
-        attackTwo :: PokemonAttack,
-        attackThree :: PokemonAttack,
-        attackFour :: PokemonAttack
+        attacks :: [PokemonAttack]
       }
   | Fainted {name :: Name}
   deriving (Show)
+
+isFainted :: Pokemon -> Bool
+isFainted (Fainted _) = True
+isFainted _ = False
 
 type Multiplier = Double
 
@@ -170,32 +189,18 @@ evaluateDamage offense (Dual defenseOne defenseTwo) =
   where
     damage = damageMultiplier offense
 
--- >>> evaluateDamage Fairy (Dual Dragon Fire)
--- 1.0
-
-createPokemon :: String -> PokemonType -> Attributes -> PokemonAttack -> PokemonAttack -> PokemonAttack -> PokemonAttack -> Either String Pokemon
-createPokemon pokemonName pokemonTypes pokemonAttributes pokemonAttackOne pokemonAttackTwo pokemonAttackThree pokemonAttackFour =
-  if length pokemonName > 1
-    then
+mkPokemon :: String -> PokemonType -> Attributes -> [PokemonAttack] -> Either String Pokemon
+mkPokemon pokemonName pokemonTypes pokemonAttributes pokemonAttacks
+  | length pokemonName < 2 = Left "Pokemon name lenght must greater or equals 2"
+  | length pokemonAttacks /= 4 = Left $ "Pokemon '" ++ pokemonName ++ "' must have 4 attacks"
+  | otherwise =
       Right
         Pokemon
           { name = pokemonName,
             types = pokemonTypes,
             attributes = pokemonAttributes,
-            attackOne = pokemonAttackOne,
-            attackTwo = pokemonAttackTwo,
-            attackThree = pokemonAttackThree,
-            attackFour = pokemonAttackFour
+            attacks = pokemonAttacks
           }
-    else Left $ "Pokemon '" ++ pokemonName ++ "' must have name"
-
-pokemonOne = createPokemon "Charizard" (Dual Fire Flying) (Attributes 78 84 78 100) (PokemonAttack "Flamethrower" Fire 90) (PokemonAttack "Air slash" Flying 65) (PokemonAttack "Dragon Claw" Dragon 90) (PokemonAttack "Slash" Normal 70)
-
-pokemonTwo = createPokemon "Lucario" (Dual Steel Fighting) (Attributes 70 110 70 90) (PokemonAttack "Flamethrower" Fire 90) (PokemonAttack "Air slash" Flying 65) (PokemonAttack "Dragon Claw" Dragon 90) (PokemonAttack "Slash" Normal 70)
-
-pokemonThree = createPokemon "Jolteon" (Mono Electric) (Attributes 65 110 95 130) (PokemonAttack "Flamethrower" Fire 90) (PokemonAttack "Air slash" Flying 65) (PokemonAttack "Dragon Claw" Dragon 90) (PokemonAttack "Slash" Normal 70)
-
--- Damage = (((42 * AttackStat * AttackPower / DefenseStat) / 50) + 2) * STAB * Weakness/Resistance * 1
 
 stab :: Pokemon -> PokemonAttack -> Multiplier
 stab pokemon attack = case types pokemon of
@@ -208,84 +213,32 @@ pokemonAttackDamage pokemonDefender attackingPokemon attackOfAttackingPokemon =
     * stab attackingPokemon attackOfAttackingPokemon
     * evaluateDamage (attackType attackOfAttackingPokemon) (types pokemonDefender)
 
+-- Damage = (((42 * AttackStat * AttackPower / DefenseStat) / 50) + 2) * STAB * Weakness/Resistance * 1
+
+mkAttributesWithNewHp :: Attributes -> Double -> Attributes
+mkAttributesWithNewHp attr hp = attr {hitPoints = hp}
+
+receiveAttack :: Pokemon -> PokemonAttack -> Pokemon -> Pokemon
+receiveAttack attackingPokemon attackOfAttackingPokemon pokemonDefender =
+  let damage = pokemonAttackDamage pokemonDefender attackingPokemon attackOfAttackingPokemon
+      newHP = hitPoints (attributes pokemonDefender) - damage
+      deffenderNewAttributes = mkAttributesWithNewHp (attributes pokemonDefender) newHP
+   in if newHP <= 0
+        then Fainted {name = name pokemonDefender}
+        else pokemonDefender {attributes = deffenderNewAttributes}
+
 pokemonAttacksPokemon :: Pokemon -> Pokemon -> PokemonAttack -> Pokemon
 pokemonAttacksPokemon pokemonDefender attackingPokemon attackOfAttackingPokemon =
-  Pokemon
-    { name = name pokemonDefender,
-      types = types pokemonDefender,
-      attributes =
-        Attributes
-          { hitPoints = hitPoints (attributes pokemonDefender) - pokemonAttackDamage pokemonDefender attackingPokemon attackOfAttackingPokemon,
-            attackAttribute = attackAttribute (attributes pokemonDefender),
-            defenseAttribute = defenseAttribute (attributes pokemonDefender),
-            speedAttribute = speedAttribute (attributes pokemonDefender)
-          },
-      attackOne = attackOne pokemonDefender,
-      attackTwo = attackTwo pokemonDefender,
-      attackThree = attackThree pokemonDefender,
-      attackFour = attackFour pokemonDefender
-    }
-
-data Zipper a = Z [a] a [a] deriving (Show)
-
-focus :: Zipper a -> a
-focus (Z _ x _) = x
-
-walkRight, walkLeft :: Zipper a -> Zipper a
-walkRight z@(Z _ _ []) = z
-walkRight (Z lft f (x : rgt)) = Z (f : lft) x rgt
-walkLeft z@(Z [] _ _) = z
-walkLeft (Z (x : lft) f rgt) = Z lft x (f : rgt)
-
-test = Z [] pokemonOne [pokemonTwo, pokemonThree]
-
-testR = walkRight test
-
-testRR = walkRight testR
-
-testRRR = walkRight testRR
-
-printPokemon :: Pokemon -> String
-printPokemon = name
-
--- (fmap name (focus test))
-
---- >>> show (name <$> focus testRR)
--- "Right \"Jolteon\""
-
--- swtich :: Name -> Zipper a -> Zipper a
--- swtich name z@(Z left focus right) = z
+  let damage = pokemonAttackDamage pokemonDefender attackingPokemon attackOfAttackingPokemon
+      newHP = hitPoints (attributes pokemonDefender) - damage
+      deffenderNewAttributes = mkAttributesWithNewHp (attributes pokemonDefender) newHP
+   in if newHP <= 0
+        then Fainted {name = name pokemonDefender}
+        else pokemonDefender {attributes = deffenderNewAttributes}
 
 isPokemon :: Name -> Pokemon -> Bool
 isPokemon targetPokemonName pokemon = name pokemon == targetPokemonName
 
-switchPokemon :: Name -> Zipper Pokemon -> Zipper Pokemon
-switchPokemon n z
-  | isPokemon n (focus z) = z
-  | otherwise = case moveToLeft n z of
-      Just z' -> z'
-      Nothing -> case moveToRight n z of
-        Just z' -> z'
-        Nothing -> z
-
-moveToLeft :: Name -> Zipper Pokemon -> Maybe (Zipper Pokemon)
-moveToLeft n z@(Z [] _ _) = Nothing
-moveToLeft n z@(Z (x : lft) f rgt)
-  | isPokemon n x = Just $ Z lft x (f : rgt)
-  | otherwise = moveToLeft n (walkLeft z)
-
-moveToRight :: Name -> Zipper Pokemon -> Maybe (Zipper Pokemon)
-moveToRight n z@(Z _ _ []) = Nothing
-moveToRight n z@(Z lft f (x : rgt))
-  | isPokemon n x = Just $ Z (f : lft) x rgt
-  | otherwise = moveToRight n (walkRight z)
-
-extractRight :: Either a b -> b
-extractRight (Right x) = x
-
-team = Z [extractRight pokemonTwo] (extractRight pokemonOne) [extractRight pokemonThree]
-
-teamL = switchPokemon "Lucario" team
-
--- >>> printPokemon $ focus (switchPokemon "Jolteon" teamL)
--- "Jolteon"
+findAttackByName :: Pokemon -> Name -> Maybe PokemonAttack
+findAttackByName pokemon attackNameToFind =
+  find (\attack -> attackName attack == attackNameToFind) (attacks pokemon)
