@@ -2,7 +2,6 @@ module Pokemon
   ( Type (..),
     PokemonType (..),
     Attributes (..),
-    Name,
     PokemonAttack (..),
     Pokemon (..),
     isFainted,
@@ -13,7 +12,6 @@ module Pokemon
     pokemonAttackDamage,
     mkAttributesWithNewHp,
     receiveAttack,
-    pokemonAttacksPokemon,
     isPokemon,
     findAttackByName,
   )
@@ -48,18 +46,16 @@ data PokemonType = Mono Type | Dual Type Type
 data Attributes = Attributes {hitPoints :: Double, attackAttribute :: Double, defenseAttribute :: Double, speedAttribute :: Double}
   deriving (Show)
 
-type Name = String
-
-data PokemonAttack = PokemonAttack {attackName :: Name, attackType :: Type, attackDamage :: Double} deriving (Show)
+data PokemonAttack = PokemonAttack {attackName :: String, attackType :: Type, attackDamage :: Double} deriving (Show)
 
 data Pokemon
   = Pokemon
-      { name :: Name,
+      { name :: String,
         types :: PokemonType,
         attributes :: Attributes,
         attacks :: [PokemonAttack]
       }
-  | Fainted {name :: Name}
+  | Fainted {name :: String}
   deriving (Show)
 
 isFainted :: Pokemon -> Bool
@@ -227,18 +223,9 @@ receiveAttack attackingPokemon attackOfAttackingPokemon pokemonDefender =
         then Fainted {name = name pokemonDefender}
         else pokemonDefender {attributes = deffenderNewAttributes}
 
-pokemonAttacksPokemon :: Pokemon -> Pokemon -> PokemonAttack -> Pokemon
-pokemonAttacksPokemon pokemonDefender attackingPokemon attackOfAttackingPokemon =
-  let damage = pokemonAttackDamage pokemonDefender attackingPokemon attackOfAttackingPokemon
-      newHP = hitPoints (attributes pokemonDefender) - damage
-      deffenderNewAttributes = mkAttributesWithNewHp (attributes pokemonDefender) newHP
-   in if newHP <= 0
-        then Fainted {name = name pokemonDefender}
-        else pokemonDefender {attributes = deffenderNewAttributes}
-
-isPokemon :: Name -> Pokemon -> Bool
+isPokemon :: String -> Pokemon -> Bool
 isPokemon targetPokemonName pokemon = name pokemon == targetPokemonName
 
-findAttackByName :: Pokemon -> Name -> Maybe PokemonAttack
+findAttackByName :: Pokemon -> String -> Maybe PokemonAttack
 findAttackByName pokemon attackNameToFind =
   find (\attack -> attackName attack == attackNameToFind) (attacks pokemon)

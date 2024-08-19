@@ -8,7 +8,7 @@ type Name = String
 
 data Player = Player String Team | Winner Name | Loser Name deriving (Show)
 
-data Battle = Battle (Switch Player) | Final Player Player deriving (Show)
+data Battle = Battle (Switch Player) | Finished Player Player
 
 turn :: Battle -> Battle
 turn (Battle players) = Battle $ switch players
@@ -23,6 +23,6 @@ attack battle _ _ = battle
 
 finish :: Battle -> Battle
 finish battle@(Battle (Switch (Player name team) (Player other _)))
-  | teamFainted team = Final (Loser name) (Winner other)
+  | teamFainted team = Finished (Loser name) (Winner other)
   | otherwise = battle
 finish battle = battle

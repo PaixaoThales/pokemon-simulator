@@ -1,18 +1,22 @@
 module Team (Team, teamFainted, changePokemon, Team.receiveAttack) where
 
-import Commons (ToBoolean (mapToBoolean), Zipper, all, applyOnFocus, find, focus)
-import Pokemon (Name, Pokemon, PokemonAttack, isFainted, isPokemon, receiveAttack)
+import Commons (ToBoolean (toBoolean), Zipper, all, applyOnFocus, find, focus)
+import Data.Maybe
+import Pokemon (Pokemon, PokemonAttack, isFainted, isPokemon, receiveAttack)
 import Prelude hiding (all)
 
 type Team = Zipper (Either String Pokemon)
 
 teamFainted :: Team -> Bool
-teamFainted = all (`mapToBoolean` isFainted)
+teamFainted = all (`toBoolean` isFainted)
 
-changePokemon :: Name -> Team -> Maybe Team
+changePokemon :: String -> Team -> Team
 changePokemon nameToFind team
-  | mapToBoolean (focus team) (isPokemon nameToFind) = pure team
-  | otherwise = find (\pokemon -> mapToBoolean pokemon (isPokemon nameToFind)) team
+  | toBoolean (focus team) (isPokemon nameToFind) = team
+  | otherwise =
+      fromMaybe
+        team
+        (find (\pokemon -> toBoolean pokemon (isPokemon nameToFind)) team)
 
 receiveAttack :: Pokemon -> PokemonAttack -> Team -> Team
 receiveAttack attacker attack team =

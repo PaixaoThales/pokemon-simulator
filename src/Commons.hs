@@ -12,6 +12,7 @@ module Commons
     Switch (..),
     current,
     switch,
+    ToMaybe (..),
   )
 where
 
@@ -40,17 +41,24 @@ find predicate zipper@(Zipper _ f _)
   | otherwise = find predicate (left zipper) <|> find predicate (right zipper)
 
 class (Functor m) => ToBoolean m where
-  mapToBoolean :: m b -> (b -> Bool) -> Bool
+  toBoolean :: m b -> (b -> Bool) -> Bool
+
+class (Monad m) => ToMaybe m where
+  toMaybe :: m b -> Maybe b
+
+instance ToMaybe (Either c) where
+  toMaybe (Right value) = Just value
+  toMaybe _ = Nothing
 
 instance ToBoolean (Either c) where
-  mapToBoolean :: Either a b -> (b -> Bool) -> Bool
-  mapToBoolean (Right value) predicate = predicate value
-  mapToBoolean _ _ = False
+  toBoolean :: Either a b -> (b -> Bool) -> Bool
+  toBoolean (Right value) predicate = predicate value
+  toBoolean _ _ = False
 
 instance ToBoolean Maybe where
-  mapToBoolean :: Maybe b -> (b -> Bool) -> Bool
-  mapToBoolean (Just value) predicate = predicate value
-  mapToBoolean _ _ = False
+  toBoolean :: Maybe b -> (b -> Bool) -> Bool
+  toBoolean (Just value) predicate = predicate value
+  toBoolean _ _ = False
 
 data Switch a = Switch a a deriving (Show)
 
