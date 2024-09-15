@@ -1,24 +1,18 @@
 module Main (main) where
 
-import Battle (Battle (..), battle, playerName)
-import Mock (player)
-import Switch (Switch (..))
+import qualified Infrastructure.Mock as Mock
+import Domain.Battle (mkBattle, finished)
+import Infrastructure.Game (Game, play)
 
-play :: Battle -> IO Battle
-play b@(Battle (Switch one second)) = do
-  putStr "\ESC[2J"
-  putStrLn $ "Atacante: " ++ show one
-  putStrLn $ "Defensor: " ++ show second
-  newBattle <- battle b
-  play newBattle
-play b@(Finished loser winner) = do
-  putStrLn $ "Winner: " ++ playerName winner
-  putStrLn $ "Loser: " ++ playerName loser
-  return b
+p1 = Mock.player "Gustavo"
+p2 = Mock.player "Thales"
+game = mkBattle <$> p1 <*> p2
+
+run :: Game -> IO Game
+run g = if (not . finished) g then play g >>= run else return g
 
 main :: IO ()
 main = do
-  let first = player "Gustavo"
-  let other = player "Thales"
-  _ <- play $ Battle (Switch first other)
-  print "A batalha acabou"
+  g <- either fail run game
+  putStrLn "Acabou"
+
